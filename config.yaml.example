@@ -1,0 +1,4 @@
+PRIVATE_KEY:      "xxx"
+RPC_URL:          "https://goerli.infura.io/v3/xxx"
+CONTRACT_ADDRESS: "0x000"
+GAS_LIMIT:        130000
