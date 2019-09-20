@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"encoding/binary"
 	"fmt"
 	"log"
 	"math/big"
@@ -20,24 +22,22 @@ func init() {
 }
 
 func main() {
-	rootHashStr := "0x1a883108f6c929c5fe66e2f0df9726e54f5d106d9851711c4d413588d91e9d6f"
-	leave1Str := "0xe58b11ef54b1cd83d5dcf3ab433827b907fdb23f1f16f8544b4ae290b4418654"
-	leave2Str := "0xbee02ea41003d2f4e587698691f0be417c2c546e70c63648c59f93cbabc8f85f"
-
-	rootHash := [32]byte{}
-	copy(rootHash[:], []byte(rootHashStr))
-
-	leave1 := [32]byte{}
-	copy(leave1[:], []byte(leave1Str))
-
-	leave2 := [32]byte{}
-	copy(leave2[:], []byte(leave2Str))
-
+	// root and leaves input can be with or without 0x prefix
+	rootHash := newHash("0x_MERKLE_ROOT_HASH")
+	leave1 := newHash("0x_LEAVE_1_HASH")
+	leave2 := newHash("0x_LEAVE_2_HASH")
 	leaves := [][32]byte{leave1, leave2}
 
 	set(rootHash, leaves)
 	time.Sleep(30 * time.Second) // wait for mining
 	get(rootHash)
+}
+
+func newHash(input string) common.Hash {
+	if len(input) < 64 {
+		log.Fatalf("Invalid input length for '%s'", input)
+	}
+	return common.HexToHash(input)
 }
 
 func set(rootHash [32]byte, leaves [][32]byte) {
@@ -85,11 +85,11 @@ func set(rootHash [32]byte, leaves [][32]byte) {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Tx created: %s\n", tx.Hash().Hex())
+	log.Printf("Tx created: %s\n", tx.Hash().Hex())
 }
 
 func get(mapKey [32]byte) {
-	fmt.Println("Fetching leaves from map...")
+	log.Printf("Fetching leaves from map...\n")
 
 	client, err := ethclient.Dial(viper.GetString("RPC_URL"))
 	if err != nil {
@@ -107,10 +107,25 @@ func get(mapKey [32]byte) {
 		log.Fatal(err)
 	}
 
+	fmt.Println("-------")
+	fmt.Println("Result:")
+	fmt.Println("-------")
 	for i, v := range values {
-		humanPosition := i + 1
-		fmt.Printf("Value %d: %s\n", humanPosition, v)
+		humanCounter := i + 1
+		fmt.Printf("Value %d: %s\n", humanCounter, byte32ArrayToString(v))
 	}
+}
+
+func byte32ArrayToString(source [32]byte) string {
+	buf := new(bytes.Buffer)
+	err := binary.Write(buf, binary.LittleEndian, source)
+	if err != nil {
+		log.Fatal("binary.Write failed:", err)
+	}
+
+	valHash := common.BytesToHash(buf.Bytes())
+	valHashStr := valHash.String()
+	return valHashStr
 }
 
 func initViper() {
@@ -123,5 +138,5 @@ func initViper() {
 	}
 
 	// Confirm which config file is used
-	fmt.Printf("Using config: %s\n", viper.ConfigFileUsed())
+	log.Printf("Using config: %s\n", viper.ConfigFileUsed())
 }
